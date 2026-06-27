@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeBookingButtons();
   initializeSmoothScroll();
   initializeScrollAnimations();
+  initializeGalleryLightbox();
+  initializeStickyNavbar();
   
   console.log('Profocus Media Ghana website initialized');
 });
@@ -39,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeMobileMenu() {
   const hamburgerBtn = document.getElementById('hamburger-menu');
   const navMenu = document.getElementById('nav-menu');
-  const navLinks = document.querySelectorAll('.nav-link');
+  const navLinks = document.querySelectorAll('.nav-list a');
 
   if (!hamburgerBtn || !navMenu) return;
 
@@ -89,6 +91,158 @@ function initializeMobileMenu() {
     hamburgerBtn.classList.remove('active');
     navMenu.style.display = ''; // Reset to CSS display value
     hamburgerBtn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+/* ============================================
+   LUXURY EXHIBITION LIGHTBOX
+   Why: High-end fullscreen image viewing with smooth transitions
+============================================ */
+function initializeGalleryLightbox() {
+  const lightbox = document.getElementById('lightbox');
+  
+  // Safety check - if lightbox doesn't exist, return early
+  if (!lightbox) {
+    console.warn('Lightbox element not found');
+    return;
+  }
+  
+  const lightboxImg = lightbox.querySelector('.lightbox-image');
+  const closeBtn = lightbox.querySelector('.lightbox-close');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const galleryItems = document.querySelectorAll('.gallery-item img');
+  
+  let currentIndex = 0;
+  let isAnimating = false;
+  const images = Array.from(galleryItems).map(img => img.src);
+
+  // Add click handlers to gallery items
+  document.querySelectorAll('.gallery-item').forEach((item, index) => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      currentIndex = index;
+      showImage(images[currentIndex]);
+    });
+    
+    // Add keyboard support for accessibility
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        currentIndex = index;
+        showImage(images[currentIndex]);
+      }
+    });
+  });
+
+  function showImage(src) {
+    if (isAnimating) return;
+    
+    // Add fade-out animation
+    lightboxImg.style.opacity = '0';
+    lightboxImg.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+      lightboxImg.src = src;
+      lightbox.style.display = 'flex';
+      document.body.style.overflow = 'hidden'; // Prevent scroll
+      
+      // Add fade-in animation
+      requestAnimationFrame(() => {
+        lightboxImg.style.opacity = '1';
+        lightboxImg.style.transform = 'scale(1)';
+      });
+    }, 200);
+  }
+
+  function closeLightbox() {
+    if (isAnimating) return;
+    
+    lightboxImg.style.opacity = '0';
+    lightboxImg.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+      lightbox.style.display = 'none';
+      document.body.style.overflow = '';
+      lightboxImg.style.transform = 'scale(1)';
+    }, 300);
+  }
+
+  function navigate(direction) {
+    if (isAnimating) return;
+    isAnimating = true;
+    
+    const oldIndex = currentIndex;
+    currentIndex = (currentIndex + direction + images.length) % images.length;
+    
+    // Slide animation
+    const slideDirection = direction > 0 ? 'translateX(-20px)' : 'translateX(20px)';
+    lightboxImg.style.transform = `scale(0.95) ${slideDirection}`;
+    lightboxImg.style.opacity = '0';
+    
+    setTimeout(() => {
+      lightboxImg.src = images[currentIndex];
+      
+      requestAnimationFrame(() => {
+        const oppositeDirection = direction > 0 ? 'translateX(20px)' : 'translateX(-20px)';
+        lightboxImg.style.transform = `scale(0.95) ${oppositeDirection}`;
+        
+        setTimeout(() => {
+          lightboxImg.style.opacity = '1';
+          lightboxImg.style.transform = 'scale(1) translateX(0)';
+          isAnimating = false;
+        }, 50);
+      });
+    }, 300);
+  }
+
+  // Event listeners with safety checks
+  if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+  if (prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); navigate(-1); });
+  if (nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); navigate(1); });
+  
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  // Keyboard Navigation with smooth transitions
+  document.addEventListener('keydown', (e) => {
+    if (lightbox.style.display === 'flex') {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') navigate(-1);
+      if (e.key === 'ArrowRight') navigate(1);
+    }
+  });
+
+  // Touch/Swipe support for mobile
+  let touchStartX = 0;
+  let touchEndX = 0;
+  
+  lightbox.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+  
+  lightbox.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipe();
+  }, { passive: true });
+  
+  function handleSwipe() {
+    const swipeThreshold = 50;
+    const diff = touchStartX - touchEndX;
+    
+    if (Math.abs(diff) > swipeThreshold) {
+      if (diff > 0) {
+        navigate(1); // Swipe left - next image
+      } else {
+        navigate(-1); // Swipe right - previous image
+      }
+    }
+  }
+
+  // Add transition styles to lightbox image
+  if (lightboxImg) {
+    lightboxImg.style.transition = 'opacity 0.3s ease, transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1)';
   }
 }
 
@@ -208,18 +362,18 @@ Thank you!`;
 
 /* ============================================
    SMOOTH SCROLLING FOR ANCHOR LINKS
-   Why: Better UX for navigation
+   Why: Better UX for navigation with luxury feel
    
    Key Concepts:
    - Intersection Observer for efficient detection
    - CSS scroll-behavior: smooth (already set in CSS)
    - Progressive enhancement - works even without JS
+   - Smooth offset for fixed header
 ============================================ */
 function initializeSmoothScroll() {
-  // Modern browsers support scroll-behavior in CSS
-  // This is a fallback for older browsers
-  
   const links = document.querySelectorAll('a[href^="#"]');
+  const navbar = document.getElementById('navbar');
+  const headerOffset = navbar ? navbar.offsetHeight + 20 : 100;
 
   links.forEach(link => {
     link.addEventListener('click', (e) => {
@@ -236,13 +390,52 @@ function initializeSmoothScroll() {
       if (targetElement) {
         e.preventDefault();
         
-        // Scroll to element
-        targetElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
+        // Calculate position with header offset
+        const elementPosition = targetElement.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        
+        // Smooth scroll to element
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
         });
+        
+        // Update active nav link
+        updateActiveNavLink(targetId);
       }
     });
+  });
+  
+  // Update active navigation link on scroll
+  function updateActiveNavLink(activeId) {
+    const navLinks = document.querySelectorAll('.nav-list a');
+    navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === `#${activeId}`) {
+        link.classList.add('active');
+      }
+    });
+  }
+  
+  // Intersection Observer for scroll spy
+  const sections = document.querySelectorAll('section[id]');
+  const observerOptions = {
+    root: null,
+    rootMargin: '-20% 0px -60% 0px',
+    threshold: 0
+  };
+  
+  const sectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        updateActiveNavLink(id);
+      }
+    });
+  }, observerOptions);
+  
+  sections.forEach(section => {
+    sectionObserver.observe(section);
   });
 }
 
@@ -259,7 +452,7 @@ function initializeSmoothScroll() {
 function initializeScrollAnimations() {
   // Add animation class to animate-on-scroll elements
   const elements = document.querySelectorAll(
-    '.feature-card, .package-card, .contact-card, .accordion-item'
+    '.feature-card, .package-card, .contact-card, .accordion-item, .exhibition-item'
   );
 
   if (!('IntersectionObserver' in window)) {
@@ -294,6 +487,12 @@ function initializeScrollAnimations() {
   // Start observing elements
   elements.forEach(el => {
     el.style.opacity = '0';
+
+    // Safety fallback: Ensure images are visible even if observer fails to trigger
+    setTimeout(() => {
+      if (el.style.opacity === '0') el.style.opacity = '1';
+    }, 2000);
+
     observer.observe(el);
   });
 
